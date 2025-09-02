@@ -638,6 +638,7 @@
                             bidNtceDt: item.querySelector('bidNtceDt')?.textContent || '',
                             bidClseDt: item.querySelector('bidClseDt')?.textContent || '',
                             presmptPrce: item.querySelector('presmptPrce')?.textContent || '',
+                            bidNtceDtlUrl: item.querySelector('bidNtceDtlUrl')?.textContent || '',
                             bidNtceUrl: item.querySelector('bidNtceUrl')?.textContent || '',
                             ntceInsttNm: item.querySelector('ntceInsttNm')?.textContent || ''
                         };
@@ -666,6 +667,7 @@
                             bidNtceDt: '2025-09-01 09:00:00',
                             bidClseDt: '2025-09-15 17:00:00',
                             presmptPrce: '500000000',
+                            bidNtceDtlUrl: 'https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=20250901-001&bidPbancOrd=000',
                             bidNtceUrl: 'http://www.g2b.go.kr',
                             ntceInsttNm: '한국전력공사'
                         }
@@ -680,6 +682,7 @@
                             bidNtceDt: '2025-09-01 10:00:00',
                             bidClseDt: '2025-09-20 17:00:00',
                             presmptPrce: '2000000000',
+                            bidNtceDtlUrl: 'https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=20250901-002&bidPbancOrd=000',
                             bidNtceUrl: 'http://www.g2b.go.kr',
                             ntceInsttNm: '한국도로공사'
                         }
@@ -694,6 +697,7 @@
                             bidNtceDt: '2025-09-01 11:00:00',
                             bidClseDt: '2025-09-10 17:00:00',
                             presmptPrce: '50000000',
+                            bidNtceDtlUrl: 'https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=20250901-003&bidPbancOrd=000',
                             bidNtceUrl: 'http://www.g2b.go.kr',
                             ntceInsttNm: '교육부'
                         }
@@ -738,7 +742,16 @@
 
             // 입찰공고 링크 HTML 생성
             generateBidLinkHtml(item) {
-                // 1순위: API에서 제공된 bidNtceUrl 사용
+                // 1순위: API에서 제공된 bidNtceDtlUrl 사용 (실제 상세 페이지 URL)
+                if (item.bidNtceDtlUrl && item.bidNtceDtlUrl !== '#') {
+                    return `<a href="${item.bidNtceDtlUrl}" target="_blank" 
+                               class="text-blue-600 hover:text-blue-900 flex items-center transition-colors">
+                                <i class="fas fa-external-link-alt mr-1"></i>
+                                상세보기
+                            </a>`;
+                }
+
+                // 2순위: API에서 제공된 bidNtceUrl 사용 (대안 URL)
                 if (item.bidNtceUrl && item.bidNtceUrl !== '#' && !item.bidNtceUrl.includes('sample')) {
                     return `<a href="${item.bidNtceUrl}" target="_blank" 
                                class="text-blue-600 hover:text-blue-900 flex items-center transition-colors">
@@ -747,7 +760,7 @@
                             </a>`;
                 }
 
-                // 2순위: 공고번호로 직접 링크 생성
+                // 3순위: 공고번호로 직접 링크 생성
                 if (item.bidNtceNo) {
                     const detailUrl = this.generateBidDetailUrl(item.bidNtceNo, item.bidType);
                     return `<a href="${detailUrl}" target="_blank" 
@@ -757,7 +770,7 @@
                             </a>`;
                 }
 
-                // 3순위: 공고명으로 검색 링크 생성
+                // 4순위: 공고명으로 검색 링크 생성
                 if (item.bidNtceNm) {
                     const searchUrl = this.generateBidSearchUrl(item.bidNtceNo, item.bidNtceNm);
                     return `<a href="${searchUrl}" target="_blank" 
@@ -767,7 +780,7 @@
                             </a>`;
                 }
 
-                // 4순위: 나라장터 메인 페이지
+                // 5순위: 나라장터 메인 페이지
                 return `<a href="http://www.g2b.go.kr" target="_blank" 
                            class="text-gray-600 hover:text-gray-900 flex items-center transition-colors">
                             <i class="fas fa-globe mr-1"></i>
