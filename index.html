@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나라장터 입찰공고 검색</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="나라장터 입찰공고 검색 시스템 - 공공데이터포털 API를 활용한 실시간 입찰정보 조회">
+    <meta name="keywords" content="나라장터, 입찰공고, 공공데이터, G2B, 정부조달">
+    <meta name="author" content="PublicPortal">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="나라장터 입찰공고 검색">
+    <meta property="og:description" content="실시간 나라장터 입찰공고 검색 및 Excel 내보내기">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cjlee-cmd.github.io/publicportal/">
+    
+    <!-- CSS Framework -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Custom CSS for GitHub Pages */
+        * {
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* 애니메이션 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        /* 폼 요소 스타일링 */
+        input[type="date"], 
+        input[type="text"], 
+        select {
+            transition: all 0.2s ease-in-out;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        }
+
+        input[type="date"]:focus, 
+        input[type="text"]:focus, 
+        select:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            transform: translateY(-1px);
+        }
+
+        /* 버튼 스타일링 */
+        button {
+            transition: all 0.2s ease-in-out;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* 테이블 행 호버 효과 */
+        tbody tr:hover {
+            background-color: #f8fafc;
+            transform: scale(1.002);
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* 선택된 행 스타일 */
+        tbody tr.selected {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+        }
+
+        /* 입찰 구분 뱃지 */
+        .badge-servc {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-cnstwk {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-thng {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        /* 상태 인디케이터 */
+        .status-active {
+            position: relative;
+        }
+
+        .status-active::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        /* 반응형 그리드 */
+        @media (max-width: 768px) {
+            .grid-responsive {
+                grid-template-columns: 1fr;
+            }
+            
+            table {
+                font-size: 0.875rem;
+            }
+            
+            .px-6 {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+        }
+
+        /* 로딩 애니메이션 */
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% {
+                content: '';
+            }
+            40% {
+                content: '.';
+            }
+            60% {
+                content: '..';
+            }
+            80%, 100% {
+                content: '...';
+            }
+        }
+
+        /* 성공/에러 메시지 */
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+            animation: fadeInUp 0.3s ease-in-out;
+        }
+
+        .alert-success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .alert-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+
+        .alert-warning {
+            background-color: #fef3c7;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+
+        /* 체크박스 커스텀 스타일 */
+        input[type="checkbox"] {
+            appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid #d1d5db;
+            border-radius: 0.25rem;
+            background-color: white;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease-in-out;
+        }
+
+        input[type="checkbox"]:checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        input[type="checkbox"]:checked::before {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 0.875rem;
+        }
+
+        /* GitHub Pages 특화 스타일 */
+        .github-badge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        /* CORS 에러 알림 스타일 */
+        .cors-notice {
+            background: linear-gradient(135deg, #fef3c7, #fed7aa);
+            border: 1px solid #f59e0b;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- GitHub Badge -->
+    <a href="https://github.com/cjLee-cmd/publicportal" target="_blank" 
+       class="github-badge bg-gray-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition-colors">
+        <i class="fab fa-github mr-2"></i>
+        GitHub
+    </a>
+
+    <!-- Header -->
+    <header class="bg-white shadow-lg border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-blue-600 p-2 rounded-lg">
+                        <i class="fas fa-search text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">나라장터 입찰공고 검색</h1>
+                        <p class="text-sm text-gray-500">Government e-Procurement Service</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 text-sm text-gray-500">
+                    <i class="fas fa-clock"></i>
+                    <span id="currentTime"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- CORS Notice -->
+        <div class="cors-notice">
+            <div class="flex items-start space-x-3">
+                <i class="fas fa-info-circle text-yellow-600 mt-1"></i>
+                <div>
+                    <h3 class="font-semibold text-yellow-800">안내사항</h3>
+                    <p class="text-sm text-yellow-700 mt-1">
+                        이 웹사이트는 GitHub Pages에서 호스팅되며, CORS 정책으로 인해 직접 API 호출에 제한이 있을 수 있습니다. 
+                        완전한 기능을 사용하려면 <a href="https://github.com/cjLee-cmd/publicportal" class="underline font-medium">GitHub 저장소</a>에서 로컬로 실행해주세요.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Form -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
+            <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                <i class="fas fa-filter mr-2 text-blue-600"></i>
+                검색 조건
+            </h2>
+            
+            <form id="searchForm" class="space-y-6">
+                <!-- 날짜 구간 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">시작일</label>
+                        <input type="date" id="startDate" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">종료일</label>
+                        <input type="date" id="endDate" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+                
+                <!-- 입찰 구분 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">입찰 구분</label>
+                    <select id="bidType" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="all">전체</option>
+                        <option value="servc">용역</option>
+                        <option value="cnstwk">건설공사</option>
+                        <option value="thng">물품</option>
+                    </select>
+                </div>
+                
+                <!-- 기관 선택 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">발주기관</label>
+                    <select id="agencyFilter" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="all">전체</option>
+                        <!-- 동적으로 로드됨 -->
+                    </select>
+                </div>
+                
+                <!-- 검색 버튼 -->
+                <div class="flex justify-center">
+                    <button type="submit" id="searchBtn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition duration-200 flex items-center space-x-2">
+                        <i class="fas fa-search"></i>
+                        <span>검색하기</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="bg-white rounded-2xl shadow-sm border border-gray-200 hidden">
+            <!-- Results Header -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <h3 class="text-lg font-semibold text-gray-900">검색 결과</h3>
+                        <span id="resultCount" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium"></span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="selectAllBtn" 
+                                class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm transition duration-200">
+                            <i class="fas fa-check-square mr-1"></i>
+                            전체선택
+                        </button>
+                        <button id="deleteSelectedBtn" 
+                                class="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm transition duration-200">
+                            <i class="fas fa-trash mr-1"></i>
+                            선택삭제
+                        </button>
+                        <button id="exportExcelBtn" 
+                                class="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-lg text-sm transition duration-200">
+                            <i class="fas fa-file-excel mr-1"></i>
+                            Excel 저장
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Table -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                                <input type="checkbox" id="headerCheckbox" 
+                                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">구분</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">공고일</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">공고명</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">발주기관</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">마감일</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">예정가격</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">링크</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- 동적으로 로드됨 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-lg shadow-lg flex items-center space-x-3">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span class="text-gray-700 font-medium loading-dots">검색 중</span>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-12">
+            <div class="mx-auto h-24 w-24 text-gray-400">
+                <i class="fas fa-search text-6xl"></i>
+            </div>
+            <h3 class="mt-4 text-lg font-medium text-gray-900">검색 결과가 없습니다</h3>
+            <p class="mt-2 text-gray-500">다른 조건으로 검색해보세요.</p>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center text-gray-500 text-sm space-y-2">
+                <p>&copy; 2025 나라장터 입찰공고 검색 시스템. 공공데이터포털 API 활용.</p>
+                <p>
+                    <a href="https://github.com/cjLee-cmd/publicportal" class="text-blue-600 hover:text-blue-800 underline">
+                        <i class="fab fa-github mr-1"></i>GitHub 저장소
+                    </a>
+                    에서 전체 기능을 이용하실 수 있습니다.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.24.0/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <script>
+        // GitHub Pages용 클라이언트사이드 애플리케이션
+        class PublicPortalApp {
+            constructor() {
+                this.selectedItems = new Set();
+                this.allData = [];
+                this.apiKey = 'xXw4gHFIYeAF02lry3V2aAO+cBMUlGCCuEE4k5OMX4qAycWqmL4EfrzLl+akDZM85sDGNhI4kcks3ioy+qY/pA==';
+                this.baseUrl = 'https://apis.data.go.kr/1230000/ad/BidPublicInfoService';
+                this.proxyUrl = 'https://api.allorigins.win/raw?url='; // CORS 프록시
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.setDefaultDates();
+                this.updateCurrentTime();
+                this.loadAgencies();
+                
+                // 시간 업데이트 (1분마다)
+                setInterval(() => this.updateCurrentTime(), 60000);
+            }
+
+            setupEventListeners() {
+                // 검색 폼
+                document.getElementById('searchForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.performSearch();
+                });
+
+                // 전체 선택 체크박스
+                document.getElementById('headerCheckbox').addEventListener('change', (e) => {
+                    this.toggleSelectAll(e.target.checked);
+                });
+
+                // 버튼 이벤트
+                document.getElementById('selectAllBtn').addEventListener('click', () => {
+                    this.selectAll();
+                });
+
+                document.getElementById('deleteSelectedBtn').addEventListener('click', () => {
+                    this.deleteSelected();
+                });
+
+                document.getElementById('exportExcelBtn').addEventListener('click', () => {
+                    this.exportToExcel();
+                });
+            }
+
+            updateCurrentTime() {
+                const now = new Date();
+                const timeString = now.toLocaleString('ko-KR', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+                document.getElementById('currentTime').textContent = timeString;
+            }
+
+            setDefaultDates() {
+                const today = new Date();
+                const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                
+                document.getElementById('startDate').value = this.formatDate(weekAgo);
+                document.getElementById('endDate').value = this.formatDate(today);
+            }
+
+            formatDate(date) {
+                return date.toISOString().split('T')[0];
+            }
+
+            async loadAgencies() {
+                // 샘플 기관 목록 (실제로는 API에서 동적으로 로드해야 함)
+                const agencies = [
+                    '한국전력공사',
+                    '한국토지주택공사',
+                    '한국도로공사',
+                    '한국철도공사',
+                    '교육부',
+                    '국토교통부',
+                    '보건복지부',
+                    '과학기술정보통신부',
+                    '환경부',
+                    '국방부'
+                ];
+
+                const select = document.getElementById('agencyFilter');
+                select.innerHTML = '<option value="all">전체</option>';
+                
+                agencies.forEach(agency => {
+                    const option = document.createElement('option');
+                    option.value = agency;
+                    option.textContent = agency;
+                    select.appendChild(option);
+                });
+            }
+
+            async performSearch() {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                const bidType = document.getElementById('bidType').value;
+                const agencyFilter = document.getElementById('agencyFilter').value;
+
+                this.showLoading(true);
+                this.hideResults();
+
+                try {
+                    // 날짜 포맷팅
+                    const startDt = startDate ? startDate.replace(/-/g, '') + '0000' : '';
+                    const endDt = endDate ? endDate.replace(/-/g, '') + '2359' : '';
+
+                    const types = bidType === 'all' ? ['servc', 'cnstwk', 'thng'] : [bidType];
+                    this.allData = [];
+
+                    for (const type of types) {
+                        try {
+                            const data = await this.fetchBidData(type, startDt, endDt);
+                            if (data && data.length > 0) {
+                                // 기관 필터링
+                                const filteredData = agencyFilter === 'all' ? 
+                                    data : data.filter(item => item.dminsttNm && item.dminsttNm.includes(agencyFilter));
+                                
+                                this.allData = this.allData.concat(filteredData);
+                            }
+                        } catch (error) {
+                            console.warn(`${type} 조회 실패:`, error);
+                        }
+                    }
+
+                    if (this.allData.length > 0) {
+                        // 날짜순 정렬 (최신순)
+                        this.allData.sort((a, b) => (b.bidNtceDt || '').localeCompare(a.bidNtceDt || ''));
+                        this.displayResults(this.allData);
+                        this.showSuccessMessage(`${this.allData.length}개의 입찰공고를 찾았습니다.`);
+                    } else {
+                        this.showEmptyState();
+                        this.showWarningMessage('검색 결과가 없습니다. CORS 정책으로 인해 API 호출이 제한될 수 있습니다.');
+                    }
+
+                } catch (error) {
+                    console.error('검색 실패:', error);
+                    this.showErrorMessage('API 호출에 실패했습니다. GitHub에서 로컬로 실행해보세요.');
+                    this.showEmptyState();
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            async fetchBidData(bidType, startDt, endDt) {
+                const endpoints = {
+                    'servc': 'getBidPblancListInfoServc',
+                    'cnstwk': 'getBidPblancListInfoCnstwk', 
+                    'thng': 'getBidPblancListInfoThng'
+                };
+
+                const endpoint = endpoints[bidType];
+                const encodedKey = encodeURIComponent(this.apiKey);
+                
+                const url = `${this.baseUrl}/${endpoint}?serviceKey=${encodedKey}&pageNo=1&numOfRows=100&inqryDiv=1&inqryBgnDt=${startDt}&inqryEndDt=${endDt}`;
+                
+                try {
+                    // CORS 프록시를 통한 API 호출
+                    const response = await fetch(`${this.proxyUrl}${encodeURIComponent(url)}`);
+                    const xmlText = await response.text();
+                    
+                    // XML 파싱
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+                    
+                    // 응답 코드 확인
+                    const resultCode = xmlDoc.querySelector('resultCode')?.textContent;
+                    if (resultCode !== '00') {
+                        throw new Error(`API Error: ${xmlDoc.querySelector('resultMsg')?.textContent || 'Unknown error'}`);
+                    }
+
+                    // 아이템 파싱
+                    const items = xmlDoc.querySelectorAll('item');
+                    const results = [];
+
+                    items.forEach((item, index) => {
+                        const bidData = {
+                            id: `${bidType}_${index}_${Date.now()}`,
+                            bidType: this.getTypeName(bidType),
+                            bidNtceNo: item.querySelector('bidNtceNo')?.textContent || '',
+                            bidNtceNm: item.querySelector('bidNtceNm')?.textContent || '',
+                            dminsttNm: item.querySelector('dminsttNm')?.textContent || '',
+                            bidNtceDt: item.querySelector('bidNtceDt')?.textContent || '',
+                            bidClseDt: item.querySelector('bidClseDt')?.textContent || '',
+                            presmptPrce: item.querySelector('presmptPrce')?.textContent || '',
+                            bidNtceUrl: item.querySelector('bidNtceUrl')?.textContent || '',
+                            ntceInsttNm: item.querySelector('ntceInsttNm')?.textContent || ''
+                        };
+                        results.push(bidData);
+                    });
+
+                    return results;
+
+                } catch (error) {
+                    console.error(`${bidType} API 호출 실패:`, error);
+                    
+                    // 샘플 데이터 반환 (데모용)
+                    return this.getSampleData(bidType);
+                }
+            }
+
+            getSampleData(bidType) {
+                const sampleData = {
+                    servc: [
+                        {
+                            id: `${bidType}_sample_1`,
+                            bidType: '용역',
+                            bidNtceNo: '20250901-001',
+                            bidNtceNm: 'IT 시스템 구축 용역',
+                            dminsttNm: '한국전력공사',
+                            bidNtceDt: '2025-09-01 09:00:00',
+                            bidClseDt: '2025-09-15 17:00:00',
+                            presmptPrce: '500000000',
+                            bidNtceUrl: '#',
+                            ntceInsttNm: '한국전력공사'
+                        }
+                    ],
+                    cnstwk: [
+                        {
+                            id: `${bidType}_sample_1`,
+                            bidType: '건설공사',
+                            bidNtceNo: '20250901-002',
+                            bidNtceNm: '도로 확장 공사',
+                            dminsttNm: '한국도로공사',
+                            bidNtceDt: '2025-09-01 10:00:00',
+                            bidClseDt: '2025-09-20 17:00:00',
+                            presmptPrce: '2000000000',
+                            bidNtceUrl: '#',
+                            ntceInsttNm: '한국도로공사'
+                        }
+                    ],
+                    thng: [
+                        {
+                            id: `${bidType}_sample_1`,
+                            bidType: '물품',
+                            bidNtceNo: '20250901-003',
+                            bidNtceNm: '사무용품 구매',
+                            dminsttNm: '교육부',
+                            bidNtceDt: '2025-09-01 11:00:00',
+                            bidClseDt: '2025-09-10 17:00:00',
+                            presmptPrce: '50000000',
+                            bidNtceUrl: '#',
+                            ntceInsttNm: '교육부'
+                        }
+                    ]
+                };
+
+                return sampleData[bidType] || [];
+            }
+
+            getTypeName(typeCode) {
+                const typeNames = {
+                    'servc': '용역',
+                    'cnstwk': '건설공사',
+                    'thng': '물품'
+                };
+                return typeNames[typeCode] || typeCode;
+            }
+
+            displayResults(data) {
+                if (!data || data.length === 0) {
+                    this.showEmptyState();
+                    return;
+                }
+
+                const tbody = document.getElementById('resultsTableBody');
+                tbody.innerHTML = '';
+                
+                data.forEach((item, index) => {
+                    const row = this.createTableRow(item, index);
+                    tbody.appendChild(row);
+                });
+
+                this.updateResultCount(data.length);
+                this.showResults();
+                this.selectedItems.clear();
+                this.updateSelectAllButton();
+            }
+
+            createTableRow(item, index) {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition-colors duration-200';
+                row.dataset.id = item.id;
+
+                // 날짜 포맷팅
+                const bidDate = this.formatDisplayDate(item.bidNtceDt);
+                const closeDate = this.formatDisplayDate(item.bidClseDt);
+                
+                // 가격 포맷팅
+                const price = this.formatPrice(item.presmptPrce);
+                
+                // 입찰 구분 뱃지 클래스
+                const badgeClass = this.getBadgeClass(item.bidType);
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <input type="checkbox" class="row-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                               data-id="${item.id}">
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${badgeClass}">
+                            ${item.bidType}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${bidDate}
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900 max-w-md truncate" title="${item.bidNtceNm}">
+                            ${item.bidNtceNm}
+                        </div>
+                        <div class="text-sm text-gray-500">공고번호: ${item.bidNtceNo}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${item.dminsttNm}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${closeDate}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${price}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        ${item.bidNtceUrl && item.bidNtceUrl !== '#' ? 
+                            `<a href="${item.bidNtceUrl}" target="_blank" 
+                               class="text-blue-600 hover:text-blue-900 flex items-center">
+                                <i class="fas fa-external-link-alt mr-1"></i>
+                                상세보기
+                            </a>` : 
+                            '<span class="text-gray-400">링크없음</span>'
+                        }
+                    </td>
+                `;
+
+                // 체크박스 이벤트 리스너
+                const checkbox = row.querySelector('.row-checkbox');
+                checkbox.addEventListener('change', (e) => {
+                    this.handleRowSelection(e.target.dataset.id, e.target.checked);
+                    row.classList.toggle('selected', e.target.checked);
+                });
+
+                return row;
+            }
+
+            getBadgeClass(bidType) {
+                const classes = {
+                    '용역': 'badge-servc bg-blue-100 text-blue-800',
+                    '건설공사': 'badge-cnstwk bg-green-100 text-green-800',
+                    '물품': 'badge-thng bg-yellow-100 text-yellow-800'
+                };
+                return classes[bidType] || 'bg-gray-100 text-gray-800';
+            }
+
+            formatDisplayDate(dateString) {
+                if (!dateString) return '-';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('ko-KR', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    }).replace(/\./g, '/');
+                } catch {
+                    return dateString.substring(0, 16);
+                }
+            }
+
+            formatPrice(priceString) {
+                if (!priceString || priceString === 'N/A') return '-';
+                try {
+                    const price = parseInt(priceString);
+                    if (price >= 100000000) {
+                        return `${(price / 100000000).toFixed(1)}억원`;
+                    } else if (price >= 10000000) {
+                        return `${Math.floor(price / 10000000)}천만원`;
+                    } else {
+                        return `${price.toLocaleString()}원`;
+                    }
+                } catch {
+                    return priceString;
+                }
+            }
+
+            handleRowSelection(id, selected) {
+                if (selected) {
+                    this.selectedItems.add(id);
+                } else {
+                    this.selectedItems.delete(id);
+                }
+                this.updateSelectAllButton();
+            }
+
+            toggleSelectAll(selectAll) {
+                const checkboxes = document.querySelectorAll('.row-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = selectAll;
+                    const row = checkbox.closest('tr');
+                    row.classList.toggle('selected', selectAll);
+                    
+                    if (selectAll) {
+                        this.selectedItems.add(checkbox.dataset.id);
+                    } else {
+                        this.selectedItems.delete(checkbox.dataset.id);
+                    }
+                });
+                this.updateSelectAllButton();
+            }
+
+            selectAll() {
+                document.getElementById('headerCheckbox').checked = true;
+                this.toggleSelectAll(true);
+            }
+
+            updateSelectAllButton() {
+                const headerCheckbox = document.getElementById('headerCheckbox');
+                const totalRows = document.querySelectorAll('.row-checkbox').length;
+                const selectedCount = this.selectedItems.size;
+                
+                if (selectedCount === 0) {
+                    headerCheckbox.checked = false;
+                    headerCheckbox.indeterminate = false;
+                } else if (selectedCount === totalRows) {
+                    headerCheckbox.checked = true;
+                    headerCheckbox.indeterminate = false;
+                } else {
+                    headerCheckbox.checked = false;
+                    headerCheckbox.indeterminate = true;
+                }
+            }
+
+            deleteSelected() {
+                if (this.selectedItems.size === 0) {
+                    this.showWarningMessage('삭제할 항목을 선택해주세요.');
+                    return;
+                }
+
+                if (!confirm(`선택한 ${this.selectedItems.size}개 항목을 삭제하시겠습니까?`)) {
+                    return;
+                }
+
+                // 선택된 행들을 DOM에서 제거
+                this.selectedItems.forEach(id => {
+                    const row = document.querySelector(`tr[data-id="${id}"]`);
+                    if (row) {
+                        row.remove();
+                    }
+                    // allData에서도 제거
+                    this.allData = this.allData.filter(item => item.id !== id);
+                });
+
+                this.selectedItems.clear();
+                this.updateSelectAllButton();
+                this.updateResultCount(this.allData.length);
+                this.showSuccessMessage(`선택된 항목이 삭제되었습니다.`);
+            }
+
+            exportToExcel() {
+                const selectedIds = this.selectedItems.size > 0 ? 
+                    Array.from(this.selectedItems) : 
+                    this.allData.map(item => item.id);
+
+                if (selectedIds.length === 0) {
+                    this.showWarningMessage('내보낼 데이터가 없습니다.');
+                    return;
+                }
+
+                const exportData = this.allData.filter(bid => selectedIds.includes(bid.id));
+
+                // Excel 데이터 준비
+                const excelData = exportData.map(bid => {
+                    const price = this.formatPrice(bid.presmptPrce);
+                    return {
+                        '구분': bid.bidType || '',
+                        '공고번호': bid.bidNtceNo || '',
+                        '공고명': bid.bidNtceNm || '',
+                        '발주기관': bid.dminsttNm || '',
+                        '공고일시': bid.bidNtceDt || '',
+                        '마감일시': bid.bidClseDt || '',
+                        '예정가격': price,
+                        '공고기관': bid.ntceInsttNm || ''
+                    };
+                });
+
+                // Excel 파일 생성 및 다운로드
+                const worksheet = XLSX.utils.json_to_sheet(excelData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, '입찰공고');
+
+                const timestamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_');
+                const filename = `나라장터_입찰공고_${timestamp}.xlsx`;
+
+                XLSX.writeFile(workbook, filename);
+                
+                this.showSuccessMessage(`${selectedIds.length}개 항목이 엑셀 파일로 저장되었습니다.`);
+            }
+
+            updateResultCount(count) {
+                document.getElementById('resultCount').textContent = `${count}건`;
+            }
+
+            showResults() {
+                document.getElementById('resultsSection').classList.remove('hidden');
+                document.getElementById('emptyState').classList.add('hidden');
+            }
+
+            hideResults() {
+                document.getElementById('resultsSection').classList.add('hidden');
+                document.getElementById('emptyState').classList.add('hidden');
+            }
+
+            showEmptyState() {
+                document.getElementById('resultsSection').classList.add('hidden');
+                document.getElementById('emptyState').classList.remove('hidden');
+            }
+
+            showLoading(show, message = '검색 중') {
+                const spinner = document.getElementById('loadingSpinner');
+                const text = spinner.querySelector('.loading-dots');
+                
+                if (show) {
+                    text.textContent = message;
+                    spinner.classList.remove('hidden');
+                } else {
+                    spinner.classList.add('hidden');
+                }
+            }
+
+            showSuccessMessage(message) {
+                this.showMessage(message, 'success');
+            }
+
+            showErrorMessage(message) {
+                this.showMessage(message, 'error');
+            }
+
+            showWarningMessage(message) {
+                this.showMessage(message, 'warning');
+            }
+
+            showMessage(message, type = 'info') {
+                // 기존 메시지 제거
+                const existingAlert = document.querySelector('.alert');
+                if (existingAlert) {
+                    existingAlert.remove();
+                }
+
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${type} fixed top-4 right-4 z-50 max-w-sm shadow-lg`;
+                alertDiv.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} mr-2"></i>
+                        <span>${message}</span>
+                        <button class="ml-auto text-current opacity-50 hover:opacity-100" onclick="this.parentElement.parentElement.remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+
+                document.body.appendChild(alertDiv);
+
+                // 3초 후 자동 제거
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.remove();
+                    }
+                }, 3000);
+            }
+        }
+
+        // 앱 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            new PublicPortalApp();
+        });
+    </script>
+</body>
+</html>

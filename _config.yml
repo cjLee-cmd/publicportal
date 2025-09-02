@@ -1,0 +1,29 @@
+# GitHub Pages 설정
+title: "나라장터 입찰공고 검색"
+description: "공공데이터포털 API를 활용한 실시간 나라장터 입찰공고 검색 시스템"
+url: "https://cjlee-cmd.github.io"
+baseurl: "/publicportal"
+
+# 테마 설정
+theme: minima
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+
+# 제외할 파일/폴더
+exclude:
+  - venv/
+  - old_tests/
+  - web/
+  - *.py
+  - requirements.txt
+  - run_web.py
+  - README.md
+  - CLAUDE.md
+  - config.py
+  - main.py
+  - g2b_client.py
+
+# 포함할 파일
+include:
+  - index.html

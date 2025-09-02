@@ -2,6 +2,13 @@
 
 나라장터(G2B) 입찰공고정보를 조회하는 Python 애플리케이션입니다.
 
+## 🌐 온라인 데모
+
+**GitHub Pages에서 바로 사용해보세요!**
+👉 **[https://cjlee-cmd.github.io/publicportal/](https://cjlee-cmd.github.io/publicportal/)**
+
+> **참고**: GitHub Pages 버전은 CORS 정책으로 인해 일부 기능이 제한될 수 있습니다. 완전한 기능을 원하시면 로컬 환경에서 실행해주세요.
+
 ## 🌟 특징
 
 ### 📱 현대적인 웹 UI
