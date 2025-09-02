@@ -666,7 +666,7 @@
                             bidNtceDt: '2025-09-01 09:00:00',
                             bidClseDt: '2025-09-15 17:00:00',
                             presmptPrce: '500000000',
-                            bidNtceUrl: '#',
+                            bidNtceUrl: 'http://www.g2b.go.kr',
                             ntceInsttNm: '한국전력공사'
                         }
                     ],
@@ -680,7 +680,7 @@
                             bidNtceDt: '2025-09-01 10:00:00',
                             bidClseDt: '2025-09-20 17:00:00',
                             presmptPrce: '2000000000',
-                            bidNtceUrl: '#',
+                            bidNtceUrl: 'http://www.g2b.go.kr',
                             ntceInsttNm: '한국도로공사'
                         }
                     ],
@@ -694,13 +694,85 @@
                             bidNtceDt: '2025-09-01 11:00:00',
                             bidClseDt: '2025-09-10 17:00:00',
                             presmptPrce: '50000000',
-                            bidNtceUrl: '#',
+                            bidNtceUrl: 'http://www.g2b.go.kr',
                             ntceInsttNm: '교육부'
                         }
                     ]
                 };
 
                 return sampleData[bidType] || [];
+            }
+
+            // 나라장터 공고 상세 페이지 URL 생성
+            generateBidDetailUrl(bidNtceNo, bidType) {
+                if (!bidNtceNo) return null;
+                
+                // 나라장터 입찰공고 상세보기 URL 패턴 (2024년 기준 최신)
+                // 실제 나라장터에서 사용하는 URL 구조를 기반으로 함
+                const baseUrl = 'http://www.g2b.go.kr/pt/menu/selectSubFrame.do';
+                
+                // 입찰공고 상세보기 공통 프레임
+                const frameParams = 'frameId=FRAME_NOTICE_DETAIL&frameSrc=/pt/menu/bizinfo/notice/selectBizInfoDtl.do';
+                
+                // 공고번호 처리 - 실제 나라장터에서는 bid_no 파라미터 사용
+                const bidNoParam = encodeURIComponent(bidNtceNo);
+                
+                return `${baseUrl}?${frameParams}&bid_no=${bidNoParam}&bid_kind=${this.getBidKindCode(bidType)}`;
+            }
+
+            // 입찰 구분 코드 반환
+            getBidKindCode(bidType) {
+                const kindMap = {
+                    '용역': 'servc',
+                    '건설공사': 'cnstwk', 
+                    '물품': 'thng'
+                };
+                return kindMap[bidType] || 'servc';
+            }
+
+            // 나라장터 통합 검색 URL 생성 (대안)
+            generateBidSearchUrl(bidNtceNo, bidNtceNm) {
+                const searchKeyword = encodeURIComponent(bidNtceNm || bidNtceNo || '');
+                return `http://www.g2b.go.kr/pt/menu/selectSubFrame.do?frameId=FRAME_BID_SEARCH&frameSrc=/pt/menu/bizinfo/notice/selectBizInfoList.do&searchKeyword=${searchKeyword}`;
+            }
+
+            // 입찰공고 링크 HTML 생성
+            generateBidLinkHtml(item) {
+                // 1순위: API에서 제공된 bidNtceUrl 사용
+                if (item.bidNtceUrl && item.bidNtceUrl !== '#' && !item.bidNtceUrl.includes('sample')) {
+                    return `<a href="${item.bidNtceUrl}" target="_blank" 
+                               class="text-blue-600 hover:text-blue-900 flex items-center transition-colors">
+                                <i class="fas fa-external-link-alt mr-1"></i>
+                                상세보기
+                            </a>`;
+                }
+
+                // 2순위: 공고번호로 직접 링크 생성
+                if (item.bidNtceNo) {
+                    const detailUrl = this.generateBidDetailUrl(item.bidNtceNo, item.bidType);
+                    return `<a href="${detailUrl}" target="_blank" 
+                               class="text-blue-600 hover:text-blue-900 flex items-center transition-colors">
+                                <i class="fas fa-external-link-alt mr-1"></i>
+                                상세보기
+                            </a>`;
+                }
+
+                // 3순위: 공고명으로 검색 링크 생성
+                if (item.bidNtceNm) {
+                    const searchUrl = this.generateBidSearchUrl(item.bidNtceNo, item.bidNtceNm);
+                    return `<a href="${searchUrl}" target="_blank" 
+                               class="text-orange-600 hover:text-orange-900 flex items-center transition-colors">
+                                <i class="fas fa-search mr-1"></i>
+                                검색
+                            </a>`;
+                }
+
+                // 4순위: 나라장터 메인 페이지
+                return `<a href="http://www.g2b.go.kr" target="_blank" 
+                           class="text-gray-600 hover:text-gray-900 flex items-center transition-colors">
+                            <i class="fas fa-globe mr-1"></i>
+                            나라장터
+                        </a>`;
             }
 
             getTypeName(typeCode) {
@@ -776,14 +848,7 @@
                         ${price}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
-                        ${item.bidNtceUrl && item.bidNtceUrl !== '#' ? 
-                            `<a href="${item.bidNtceUrl}" target="_blank" 
-                               class="text-blue-600 hover:text-blue-900 flex items-center">
-                                <i class="fas fa-external-link-alt mr-1"></i>
-                                상세보기
-                            </a>` : 
-                            '<span class="text-gray-400">링크없음</span>'
-                        }
+                        ${this.generateBidLinkHtml(item)}
                     </td>
                 `;
 
