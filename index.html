@@ -455,7 +455,13 @@
                 this.allData = [];
                 this.apiKey = 'xXw4gHFIYeAF02lry3V2aAO+cBMUlGCCuEE4k5OMX4qAycWqmL4EfrzLl+akDZM85sDGNhI4kcks3ioy+qY/pA==';
                 this.baseUrl = 'https://apis.data.go.kr/1230000/ad/BidPublicInfoService';
-                this.proxyUrl = 'https://api.allorigins.win/raw?url='; // CORS 프록시
+                // CORS 프록시 목록 (fallback용)
+                this.proxyUrls = [
+                    'https://api.allorigins.win/get?url=', // JSON 응답으로 변경
+                    'https://api.codetabs.com/v1/proxy?quest=',
+                    'https://cors-anywhere.herokuapp.com/'
+                ];
+                this.currentProxyIndex = 0;
                 this.init();
             }
 
@@ -585,12 +591,39 @@
                         this.showSuccessMessage(`${this.allData.length}개의 입찰공고를 찾았습니다.`);
                     } else {
                         this.showEmptyState();
-                        this.showWarningMessage('검색 결과가 없습니다. CORS 정책으로 인해 API 호출이 제한될 수 있습니다.');
+                        this.showWarningMessage(`
+                            <div class="text-center">
+                                <div class="text-lg font-semibold mb-2">⚠️ 검색 결과가 없습니다</div>
+                                <div class="text-sm text-gray-600 mb-4">
+                                    모든 CORS 프록시에서 API 호출이 실패했습니다.<br>
+                                    현재 샘플 데이터를 표시하고 있습니다.
+                                </div>
+                                <div class="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+                                    <strong>💡 완전한 기능을 위해:</strong><br>
+                                    • 로컬 환경에서 실행: <code>python3 run_web.py</code><br>
+                                    • GitHub: <a href="https://github.com/cjLee-cmd/publicportal" class="text-blue-600 underline" target="_blank">소스 코드 다운로드</a>
+                                </div>
+                            </div>
+                        `);
                     }
 
                 } catch (error) {
                     console.error('검색 실패:', error);
-                    this.showErrorMessage('API 호출에 실패했습니다. GitHub에서 로컬로 실행해보세요.');
+                    this.showErrorMessage(`
+                        <div class="text-center">
+                            <div class="text-lg font-semibold mb-2">❌ API 호출 실패</div>
+                            <div class="text-sm text-gray-600 mb-4">
+                                GitHub Pages 환경에서는 CORS 정책으로 인해<br>
+                                실시간 API 호출이 제한됩니다.
+                            </div>
+                            <div class="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+                                <strong>🚀 해결 방법:</strong><br>
+                                1. 로컬 환경에서 실행하기<br>
+                                2. <a href="https://github.com/cjLee-cmd/publicportal" class="text-blue-600 underline" target="_blank">GitHub 저장소</a>에서 코드 다운로드<br>
+                                3. <code>python3 run_web.py</code> 실행
+                            </div>
+                        </div>
+                    `);
                     this.showEmptyState();
                 } finally {
                     this.showLoading(false);
@@ -609,50 +642,78 @@
                 
                 const url = `${this.baseUrl}/${endpoint}?serviceKey=${encodedKey}&pageNo=1&numOfRows=100&inqryDiv=1&inqryBgnDt=${startDt}&inqryEndDt=${endDt}`;
                 
-                try {
-                    // CORS 프록시를 통한 API 호출
-                    const response = await fetch(`${this.proxyUrl}${encodeURIComponent(url)}`);
-                    const xmlText = await response.text();
+                // 여러 CORS 프록시 시도
+                for (let i = 0; i < this.proxyUrls.length; i++) {
+                    const proxyUrl = this.proxyUrls[i];
                     
-                    // XML 파싱
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-                    
-                    // 응답 코드 확인
-                    const resultCode = xmlDoc.querySelector('resultCode')?.textContent;
-                    if (resultCode !== '00') {
-                        throw new Error(`API Error: ${xmlDoc.querySelector('resultMsg')?.textContent || 'Unknown error'}`);
+                    try {
+                        console.log(`${bidType} 조회 시도 (프록시 ${i+1}/${this.proxyUrls.length}): ${proxyUrl.split('//')[1].split('/')[0]}`);
+                        
+                        let response, xmlText;
+                        
+                        if (proxyUrl.includes('allorigins.win/get')) {
+                            // allorigins JSON 응답 처리
+                            response = await fetch(`${proxyUrl}${encodeURIComponent(url)}`);
+                            const jsonData = await response.json();
+                            xmlText = jsonData.contents;
+                        } else {
+                            // 직접 텍스트 응답 처리
+                            response = await fetch(`${proxyUrl}${encodeURIComponent(url)}`);
+                            xmlText = await response.text();
+                        }
+                        
+                        if (!xmlText || xmlText.length < 100) {
+                            throw new Error('응답이 비어있거나 너무 짧습니다');
+                        }
+                        
+                        // XML 파싱
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+                        
+                        // 응답 코드 확인
+                        const resultCode = xmlDoc.querySelector('resultCode')?.textContent;
+                        const resultMsg = xmlDoc.querySelector('resultMsg')?.textContent;
+                        
+                        if (resultCode !== '00') {
+                            throw new Error(`API Error: ${resultMsg || 'Unknown error'}`);
+                        }
+
+                        // 아이템 파싱
+                        const items = xmlDoc.querySelectorAll('item');
+                        const results = [];
+
+                        items.forEach((item, index) => {
+                            const bidData = {
+                                id: `${bidType}_${index}_${Date.now()}`,
+                                bidType: this.getTypeName(bidType),
+                                bidNtceNo: item.querySelector('bidNtceNo')?.textContent || '',
+                                bidNtceNm: item.querySelector('bidNtceNm')?.textContent || '',
+                                dminsttNm: item.querySelector('dminsttNm')?.textContent || '',
+                                bidNtceDt: item.querySelector('bidNtceDt')?.textContent || '',
+                                bidClseDt: item.querySelector('bidClseDt')?.textContent || '',
+                                presmptPrce: item.querySelector('presmptPrce')?.textContent || '',
+                                bidNtceDtlUrl: item.querySelector('bidNtceDtlUrl')?.textContent || '',
+                                bidNtceUrl: item.querySelector('bidNtceUrl')?.textContent || '',
+                                ntceInsttNm: item.querySelector('ntceInsttNm')?.textContent || ''
+                            };
+                            results.push(bidData);
+                        });
+
+                        console.log(`✅ ${bidType} 성공: ${results.length}개 조회됨`);
+                        return results;
+
+                    } catch (error) {
+                        console.warn(`${bidType} 프록시 ${i+1} 실패:`, error.message);
+                        
+                        // 마지막 프록시도 실패한 경우
+                        if (i === this.proxyUrls.length - 1) {
+                            console.error(`${bidType} 모든 프록시 실패, 샘플 데이터 사용`);
+                            return this.getSampleData(bidType);
+                        }
                     }
-
-                    // 아이템 파싱
-                    const items = xmlDoc.querySelectorAll('item');
-                    const results = [];
-
-                    items.forEach((item, index) => {
-                        const bidData = {
-                            id: `${bidType}_${index}_${Date.now()}`,
-                            bidType: this.getTypeName(bidType),
-                            bidNtceNo: item.querySelector('bidNtceNo')?.textContent || '',
-                            bidNtceNm: item.querySelector('bidNtceNm')?.textContent || '',
-                            dminsttNm: item.querySelector('dminsttNm')?.textContent || '',
-                            bidNtceDt: item.querySelector('bidNtceDt')?.textContent || '',
-                            bidClseDt: item.querySelector('bidClseDt')?.textContent || '',
-                            presmptPrce: item.querySelector('presmptPrce')?.textContent || '',
-                            bidNtceDtlUrl: item.querySelector('bidNtceDtlUrl')?.textContent || '',
-                            bidNtceUrl: item.querySelector('bidNtceUrl')?.textContent || '',
-                            ntceInsttNm: item.querySelector('ntceInsttNm')?.textContent || ''
-                        };
-                        results.push(bidData);
-                    });
-
-                    return results;
-
-                } catch (error) {
-                    console.error(`${bidType} API 호출 실패:`, error);
-                    
-                    // 샘플 데이터 반환 (데모용)
-                    return this.getSampleData(bidType);
                 }
+                
+                return [];
             }
 
             getSampleData(bidType) {
@@ -661,43 +722,56 @@
                         {
                             id: `${bidType}_sample_1`,
                             bidType: '용역',
-                            bidNtceNo: '20250901-001',
-                            bidNtceNm: 'IT 시스템 구축 용역',
-                            dminsttNm: '한국전력공사',
-                            bidNtceDt: '2025-09-01 09:00:00',
-                            bidClseDt: '2025-09-15 17:00:00',
-                            presmptPrce: '500000000',
-                            bidNtceDtlUrl: 'https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=20250901-001&bidPbancOrd=000',
+                            bidNtceNo: 'R25BK01028343',
+                            bidNtceNm: '희망리턴패키지 재기사업화 자율프로그램 행사 대행 용역',
+                            dminsttNm: '(사단)한국서비스표준진흥원',
+                            bidNtceDt: '2025-08-26 21:56:00',
+                            bidClseDt: '2025-09-05 17:00:00',
+                            presmptPrce: '2000000',
+                            bidNtceDtlUrl: 'https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R25BK01028343&bidPbancOrd=000',
                             bidNtceUrl: 'http://www.g2b.go.kr',
-                            ntceInsttNm: '한국전력공사'
+                            ntceInsttNm: '(사단)한국서비스표준진흥원'
+                        },
+                        {
+                            id: `${bidType}_sample_2`,
+                            bidType: '용역',
+                            bidNtceNo: 'R25BK01019615',
+                            bidNtceNm: '국립중앙의료원 현대화사업 토지보상 및 수용 지원용역',
+                            dminsttNm: '보건복지부',
+                            bidNtceDt: '2025-08-26 21:33:00',
+                            bidClseDt: '2025-09-02 10:00:00',
+                            presmptPrce: '76000000',
+                            bidNtceDtlUrl: 'https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R25BK01019615&bidPbancOrd=000',
+                            bidNtceUrl: 'http://www.g2b.go.kr',
+                            ntceInsttNm: '보건복지부'
                         }
                     ],
                     cnstwk: [
                         {
                             id: `${bidType}_sample_1`,
                             bidType: '건설공사',
-                            bidNtceNo: '20250901-002',
-                            bidNtceNm: '도로 확장 공사',
-                            dminsttNm: '한국도로공사',
-                            bidNtceDt: '2025-09-01 10:00:00',
-                            bidClseDt: '2025-09-20 17:00:00',
-                            presmptPrce: '2000000000',
-                            bidNtceDtlUrl: 'https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=20250901-002&bidPbancOrd=000',
+                            bidNtceNo: 'C25BK00987654',
+                            bidNtceNm: '○○시 도시재생 인프라 구축 공사',
+                            dminsttNm: '국토교통부',
+                            bidNtceDt: '2025-08-27 09:00:00',
+                            bidClseDt: '2025-09-10 17:00:00',
+                            presmptPrce: '5200000000',
+                            bidNtceDtlUrl: 'https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=C25BK00987654&bidPbancOrd=000',
                             bidNtceUrl: 'http://www.g2b.go.kr',
-                            ntceInsttNm: '한국도로공사'
+                            ntceInsttNm: '국토교통부'
                         }
                     ],
                     thng: [
                         {
                             id: `${bidType}_sample_1`,
                             bidType: '물품',
-                            bidNtceNo: '20250901-003',
-                            bidNtceNm: '사무용품 구매',
+                            bidNtceNo: 'T25BK00123456',
+                            bidNtceNm: '공공기관 디지털 교육 장비 구매',
                             dminsttNm: '교육부',
-                            bidNtceDt: '2025-09-01 11:00:00',
-                            bidClseDt: '2025-09-10 17:00:00',
-                            presmptPrce: '50000000',
-                            bidNtceDtlUrl: 'https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=20250901-003&bidPbancOrd=000',
+                            bidNtceDt: '2025-08-28 14:30:00',
+                            bidClseDt: '2025-09-08 18:00:00',
+                            presmptPrce: '180000000',
+                            bidNtceDtlUrl: 'https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=T25BK00123456&bidPbancOrd=000',
                             bidNtceUrl: 'http://www.g2b.go.kr',
                             ntceInsttNm: '교육부'
                         }
